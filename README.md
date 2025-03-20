@@ -1,4 +1,4 @@
-Rocks DB extension. No guarantees of anything.
+Rocks DB extension. No guarantees of anything. WORKS in 8.x
 
 
 
