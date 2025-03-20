@@ -1,4 +1,6 @@
-Rocks DB extension. No guarantees of anything. WORKS in 8.x
+Simple PHP RocksDB extension. No guarantees of anything. WORKS in 8.x.
+
+1h file, 1c file, 1 config. easily audited
 
 
 Build instructions:
