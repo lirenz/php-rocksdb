@@ -4,7 +4,7 @@
 extern zend_module_entry rocksdb_module_entry;
 #define phpext_rocksdb_ptr &rocksdb_module_entry
 
-#define PHP_ROCKSDB_VERSION "0.1"
+#define PHP_ROCKSDB_VERSION "0.2"
 
 #ifdef PHP_WIN32
 # define PHP_ROCKSDB_API __declspec(dllexport)
