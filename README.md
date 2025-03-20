@@ -1,9 +1,9 @@
 Rocks DB extension. No guarantees of anything. WORKS in 8.x
 
-
-
 Sample usage:
 
+```php
+<?php
 // - create_if_missing: create the database if it does not exist
 // - error_if_exists: error out if the database already exists
 // - paranoid_checks: perform extra checks for data integrity
@@ -55,4 +55,4 @@ $iterator = $db->prefixSearch('batch_');
 for ($iterator->rewind(); $iterator->valid(); $iterator->next()) {
   echo $iterator->key() . " => " . $iterator->current() . "\n";
 }
-
+?>
