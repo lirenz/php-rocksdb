@@ -4,7 +4,7 @@
   +----------------------------------------------------------------------+
   | This source file is subject to the MIT license.                      |
   +----------------------------------------------------------------------+
-  | Author: Lawrence Zhou                                                    |
+  | Author: Lawrence Zhou                                                |
   +----------------------------------------------------------------------+
 */
 
@@ -244,6 +244,7 @@ PHP_METHOD(RocksDB, __construct)
   zval *options_zv = NULL;
   char *err = NULL;
   rocksdb_object *obj;
+  zend_bool read_only = 0;
 
   if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|a",
       &path, &path_len, &options_zv) == FAILURE) {
@@ -252,122 +253,94 @@ PHP_METHOD(RocksDB, __construct)
 
   obj = php_rocksdb_object_from_zobj(Z_OBJ_P(getThis()));
 
-  /* Create base options */
   obj->options = rocksdb_options_create();
-  /* By default, create if missing */
   rocksdb_options_set_create_if_missing(obj->options, 1);
 
-  /* We'll create block-based table options for block_size, etc. */
   rocksdb_block_based_table_options_t *table_opts = rocksdb_block_based_options_create();
 
   if (options_zv && Z_TYPE_P(options_zv) == IS_ARRAY) {
     zval *val;
     HashTable *ht = Z_ARRVAL_P(options_zv);
 
-    /* create_if_missing */
+    if ((val = zend_hash_str_find(ht, "read_only", sizeof("read_only") - 1)) != NULL) {
+      if (zend_is_true(val)) {
+        read_only = 1;
+        rocksdb_options_set_create_if_missing(obj->options, 0);
+      }
+    }
+
     if ((val = zend_hash_str_find(ht, "create_if_missing", sizeof("create_if_missing") - 1)) != NULL) {
       rocksdb_options_set_create_if_missing(obj->options, zend_is_true(val));
     }
-
-    /* write_buffer_size */
     if ((val = zend_hash_str_find(ht, "write_buffer_size", sizeof("write_buffer_size") - 1)) != NULL) {
       convert_to_long(val);
       rocksdb_options_set_write_buffer_size(obj->options, (size_t)Z_LVAL_P(val));
     }
-
-    /* max_write_buffer_number */
     if ((val = zend_hash_str_find(ht, "max_write_buffer_number", sizeof("max_write_buffer_number") - 1)) != NULL) {
       convert_to_long(val);
       rocksdb_options_set_max_write_buffer_number(obj->options, (int)Z_LVAL_P(val));
     }
-
-    /* min_write_buffer_number_to_merge */
     if ((val = zend_hash_str_find(ht, "min_write_buffer_number_to_merge", sizeof("min_write_buffer_number_to_merge") - 1)) != NULL) {
       convert_to_long(val);
       rocksdb_options_set_min_write_buffer_number_to_merge(obj->options, (int)Z_LVAL_P(val));
     }
-
-    /* max_background_jobs */
     if ((val = zend_hash_str_find(ht, "max_background_jobs", sizeof("max_background_jobs") - 1)) != NULL) {
       convert_to_long(val);
       rocksdb_options_set_max_background_jobs(obj->options, (int)Z_LVAL_P(val));
     }
-
-    /* max_background_compactions */
     if ((val = zend_hash_str_find(ht, "max_background_compactions", sizeof("max_background_compactions") - 1)) != NULL) {
       convert_to_long(val);
       rocksdb_options_set_max_background_compactions(obj->options, (int)Z_LVAL_P(val));
     }
-
-    /* max_open_files */
     if ((val = zend_hash_str_find(ht, "max_open_files", sizeof("max_open_files") - 1)) != NULL) {
       convert_to_long(val);
       rocksdb_options_set_max_open_files(obj->options, (int)Z_LVAL_P(val));
     }
-
-    /* target_file_size_base */
     if ((val = zend_hash_str_find(ht, "target_file_size_base", sizeof("target_file_size_base") - 1)) != NULL) {
       convert_to_long(val);
       rocksdb_options_set_target_file_size_base(obj->options, (uint64_t)Z_LVAL_P(val));
     }
-
-    /* max_bytes_for_level_base */
     if ((val = zend_hash_str_find(ht, "max_bytes_for_level_base", sizeof("max_bytes_for_level_base") - 1)) != NULL) {
       convert_to_long(val);
       rocksdb_options_set_max_bytes_for_level_base(obj->options, (uint64_t)Z_LVAL_P(val));
     }
-
-    /* compression */
     if ((val = zend_hash_str_find(ht, "compression", sizeof("compression") - 1)) != NULL) {
       convert_to_long(val);
       rocksdb_options_set_compression(obj->options, (int)Z_LVAL_P(val));
     }
-
-    /* bottommost_compression */
     if ((val = zend_hash_str_find(ht, "bottommost_compression", sizeof("bottommost_compression") - 1)) != NULL) {
       convert_to_long(val);
       rocksdb_options_set_bottommost_compression(obj->options, (int)Z_LVAL_P(val));
     }
-
-    /* bloom_locality */
     if ((val = zend_hash_str_find(ht, "bloom_locality", sizeof("bloom_locality") - 1)) != NULL) {
       convert_to_long(val);
       rocksdb_options_set_bloom_locality(obj->options, (uint32_t)Z_LVAL_P(val));
     }
-
-    /* memtable_prefix_bloom_size_ratio */
     if ((val = zend_hash_str_find(ht, "memtable_prefix_bloom_size_ratio", sizeof("memtable_prefix_bloom_size_ratio") - 1)) != NULL) {
       convert_to_double(val);
       rocksdb_options_set_memtable_prefix_bloom_size_ratio(obj->options, Z_DVAL_P(val));
     }
-
-    /* block_size (block-based table) */
     if ((val = zend_hash_str_find(ht, "block_size", sizeof("block_size") - 1)) != NULL) {
       convert_to_long(val);
       rocksdb_block_based_options_set_block_size(table_opts, (size_t)Z_LVAL_P(val));
     }
-
-    /* block_restart_interval (block-based table) */
     if ((val = zend_hash_str_find(ht, "block_restart_interval", sizeof("block_restart_interval") - 1)) != NULL) {
       convert_to_long(val);
       rocksdb_block_based_options_set_block_restart_interval(table_opts, (int)Z_LVAL_P(val));
     }
   }
 
-  /* Optionally, if you want a bloom filter:
-     rocksdb_filterpolicy_t* bloom = rocksdb_filterpolicy_create_bloom(10.0);
-     rocksdb_block_based_options_set_filter_policy(table_opts, bloom);
-  */
-
-  /* Attach block-based table to main options */
   rocksdb_options_set_block_based_table_factory(obj->options, table_opts);
 
-  /* Build default read & write options */
   obj->read_options = rocksdb_readoptions_create();
   obj->write_options = rocksdb_writeoptions_create();
 
-  /* Now open the DB */
-  obj->db = rocksdb_open(obj->options, path, &err);
+  if (read_only) {
+    obj->db = rocksdb_open_for_read_only(obj->options, path,
+      /* error_if_log_file_exist */ 0, &err);
+  } else {
+    obj->db = rocksdb_open(obj->options, path, &err);
+  }
   ROCKSDB_CHECK_ERROR(err);
 }
 
@@ -434,10 +407,7 @@ PHP_METHOD(RocksDB, delete)
   RETURN_TRUE;
 }
 
-/*
-  public function RocksDB::write(RocksDBWriteBatch $batch, array $writeOptions = null): bool
-  Allows advanced write options (e.g. disable WAL, sync, etc.)
-*/
+/* public function RocksDB::write(RocksDBWriteBatch $batch, array $writeOptions = null): bool */
 PHP_METHOD(RocksDB, write)
 {
   zval *batch_zv;
@@ -454,21 +424,17 @@ PHP_METHOD(RocksDB, write)
   obj = php_rocksdb_object_from_zobj(Z_OBJ_P(getThis()));
   batch_obj = php_rocksdb_write_batch_object_from_zobj(Z_OBJ_P(batch_zv));
 
-  /* We'll create a temporary writeoptions handle for each call. */
   rocksdb_writeoptions_t *wo = rocksdb_writeoptions_create();
 
-  /* parse advanced writeOptions */
   if (writeoptions_zv && Z_TYPE_P(writeoptions_zv) == IS_ARRAY) {
     zval *val;
     HashTable *ht = Z_ARRVAL_P(writeoptions_zv);
 
-    /* disable_wal => true or false */
     if ((val = zend_hash_str_find(ht, "disable_wal", sizeof("disable_wal") - 1)) != NULL) {
       if (zend_is_true(val)) {
         rocksdb_writeoptions_disable_WAL(wo, 1);
       }
     }
-    /* sync => true or false (fsync the WAL) */
     if ((val = zend_hash_str_find(ht, "sync", sizeof("sync") - 1)) != NULL) {
       if (zend_is_true(val)) {
         rocksdb_writeoptions_set_sync(wo, 1);
@@ -476,10 +442,6 @@ PHP_METHOD(RocksDB, write)
         rocksdb_writeoptions_set_sync(wo, 0);
       }
     }
-    /* Additional keys:
-       - "no_slowdown"
-       - "ignore_missing_column_families"
-       etc. could be handled similarly if desired. */
   }
 
   rocksdb_write(obj->db, wo, batch_obj->batch, &err);
@@ -495,11 +457,9 @@ PHP_METHOD(RocksDB, getIterator)
 {
   object_init_ex(return_value, php_rocksdb_iterator_ce);
 
-  /* We'll call __construct($this) manually */
   {
     zval db_obj, fname, retval;
     zval params[1];
-
     ZVAL_COPY_VALUE(&db_obj, getThis());
     ZVAL_STRING(&fname, "__construct");
     ZVAL_COPY_VALUE(&params[0], &db_obj);
@@ -523,11 +483,9 @@ PHP_METHOD(RocksDB, prefixSearch)
 
   object_init_ex(return_value, php_rocksdb_iterator_ce);
 
-  /* We'll call __construct($this, $prefix) manually */
   {
     zval db_obj, z_prefix, fname, retval;
     zval params[2];
-
     ZVAL_COPY_VALUE(&db_obj, getThis());
     ZVAL_STRINGL(&z_prefix, prefix, prefix_len);
 
@@ -596,7 +554,6 @@ PHP_METHOD(RocksDBWriteBatch, clear)
   if (zend_parse_parameters_none() == FAILURE) {
     return;
   }
-
   obj = php_rocksdb_write_batch_object_from_zobj(Z_OBJ_P(getThis()));
   rocksdb_writebatch_clear(obj->batch);
 
@@ -751,7 +708,6 @@ PHP_MINIT_FUNCTION(rocksdb)
 {
   zend_class_entry ce;
 
-  /* Register RocksDB class */
   INIT_CLASS_ENTRY(ce, "RocksDB", rocksdb_methods);
   php_rocksdb_ce = zend_register_internal_class(&ce);
   php_rocksdb_ce->create_object = php_rocksdb_object_new;
@@ -762,7 +718,6 @@ PHP_MINIT_FUNCTION(rocksdb)
   rocksdb_object_handlers.free_obj =
     php_rocksdb_object_free;
 
-  /* A few compression constants for userland convenience */
   zend_declare_class_constant_long(php_rocksdb_ce, "NO_COMPRESSION",
     sizeof("NO_COMPRESSION")-1, rocksdb_no_compression);
   zend_declare_class_constant_long(php_rocksdb_ce, "SNAPPY_COMPRESSION",
@@ -772,7 +727,6 @@ PHP_MINIT_FUNCTION(rocksdb)
   zend_declare_class_constant_long(php_rocksdb_ce, "ZSTD_COMPRESSION",
     sizeof("ZSTD_COMPRESSION")-1, rocksdb_zstd_compression);
 
-  /* Register RocksDBWriteBatch class */
   INIT_CLASS_ENTRY(ce, "RocksDBWriteBatch", rocksdb_write_batch_methods);
   php_rocksdb_write_batch_ce = zend_register_internal_class(&ce);
   php_rocksdb_write_batch_ce->create_object = php_rocksdb_write_batch_object_new;
@@ -783,7 +737,6 @@ PHP_MINIT_FUNCTION(rocksdb)
   rocksdb_write_batch_object_handlers.free_obj =
     php_rocksdb_write_batch_object_free;
 
-  /* Register RocksDBIterator class */
   INIT_CLASS_ENTRY(ce, "RocksDBIterator", rocksdb_iterator_methods);
   php_rocksdb_iterator_ce = zend_register_internal_class(&ce);
   php_rocksdb_iterator_ce->create_object = php_rocksdb_iterator_object_new;
@@ -794,7 +747,6 @@ PHP_MINIT_FUNCTION(rocksdb)
   rocksdb_iterator_object_handlers.free_obj =
     php_rocksdb_iterator_object_free;
 
-  /* Register a RocksDBException class */
   INIT_CLASS_ENTRY(ce, "RocksDBException", NULL);
   php_rocksdb_exception_ce =
     zend_register_internal_class_ex(&ce, zend_exception_get_default());
@@ -815,16 +767,14 @@ PHP_MINFO_FUNCTION(rocksdb)
   php_info_print_table_end();
 }
 
-/* ------------------- Module Entry ------------------- */
-
 zend_module_entry rocksdb_module_entry = {
   STANDARD_MODULE_HEADER,
-  "rocksdb",                /* Extension name */
-  NULL,                     /* Functions (none are global) */
+  "rocksdb",
+  NULL,
   PHP_MINIT(rocksdb),
   PHP_MSHUTDOWN(rocksdb),
-  NULL,                     /* RINIT */
-  NULL,                     /* RSHUTDOWN */
+  NULL,
+  NULL,
   PHP_MINFO(rocksdb),
   PHP_ROCKSDB_VERSION,
   STANDARD_MODULE_PROPERTIES
