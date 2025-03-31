@@ -1,7 +1,6 @@
 Simple PHP RocksDB extension. No guarantees of anything. WORKS in 8.x.
 
-1h file, 1c file, 1 config. easily audited
-
+1h file, 1c file, 1 config. easily audited (in case you're worried about a supply-chain attack). 
 
 Build instructions:
 
@@ -15,7 +14,6 @@ sudo make install
 ```
 
 
-
 Sample usage:
 
 ```php
@@ -27,6 +25,7 @@ Sample usage:
 // - block_restart_interval: interval for block restarts
 // - compression: compression type (e.g., RocksDB::SNAPPY_COMPRESSION)
 $options = [
+  'read_only' => true,
   'create_if_missing'      => true,
   'error_if_exists'        => false,
   'paranoid_checks'        => true,
