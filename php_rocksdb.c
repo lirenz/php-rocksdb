@@ -331,6 +331,7 @@ PHP_METHOD(RocksDB, __construct)
   }
 
   rocksdb_options_set_block_based_table_factory(obj->options, table_opts);
+  rocksdb_block_based_options_destroy(table_opts);
 
   obj->read_options = rocksdb_readoptions_create();
   obj->write_options = rocksdb_writeoptions_create();
