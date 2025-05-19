@@ -159,6 +159,11 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_rocksdb_get, 0, 0, 1)
   ZEND_ARG_TYPE_INFO(0, key, IS_STRING, 0)
 ZEND_END_ARG_INFO()
 
+/* RocksDB::multiGet(array $keys): array */
+ZEND_BEGIN_ARG_INFO_EX(arginfo_rocksdb_multiGet, 0, 0, 1)
+  ZEND_ARG_ARRAY_INFO(0, keys, 0)
+ZEND_END_ARG_INFO()
+
 /* RocksDB::put(string $key, string $value): bool */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_rocksdb_put, 0, 0, 2)
   ZEND_ARG_TYPE_INFO(0, key, IS_STRING, 0)
@@ -369,6 +374,58 @@ PHP_METHOD(RocksDB, get)
   RETVAL_STRINGL(val, val_len);
   rocksdb_free(val);
 }
+
+/* public function RocksDB::multiGet(array $keys): array */
+PHP_METHOD(RocksDB, multiGet)
+{
+  zval *keys_zv; HashTable *ht;
+  size_t n, i = 0;
+  const char **c_keys; size_t *c_key_lens, *c_val_lens;
+  char **c_vals, **c_errs;
+  rocksdb_object *obj;
+
+  if (zend_parse_parameters(ZEND_NUM_ARGS(), "a", &keys_zv) == FAILURE) return;
+
+  ht = Z_ARRVAL_P(keys_zv);
+  n  = zend_hash_num_elements(ht);
+  if (!n) { array_init(return_value); return; }
+
+  c_keys     = emalloc(sizeof(char*)  * n);
+  c_key_lens = emalloc(sizeof(size_t) * n);
+  c_vals     = emalloc(sizeof(char*)  * n);
+  c_val_lens = emalloc(sizeof(size_t) * n);
+  c_errs     = emalloc(sizeof(char*)  * n);
+
+  zval *zv;
+  ZEND_HASH_FOREACH_VAL(ht, zv) {
+    convert_to_string(zv);
+    c_keys[i]     = Z_STRVAL_P(zv);
+    c_key_lens[i] = Z_STRLEN_P(zv);
+    i++;
+  } ZEND_HASH_FOREACH_END();
+
+  obj = php_rocksdb_object_from_zobj(Z_OBJ_P(getThis()));
+  rocksdb_multi_get(obj->db, obj->read_options,
+                    n, c_keys, c_key_lens,
+                    c_vals, c_val_lens, c_errs);
+
+  array_init_size(return_value, n);
+  for (i = 0; i < n; i++) {
+    if (c_errs[i]) {
+      add_next_index_bool(return_value, 0);
+      rocksdb_free(c_errs[i]);
+    } else if (c_vals[i]) {
+      add_next_index_stringl(return_value, c_vals[i], c_val_lens[i]);
+      rocksdb_free(c_vals[i]);
+    } else {
+      add_next_index_null(return_value);
+    }
+  }
+
+  efree(c_keys); efree(c_key_lens);
+  efree(c_vals); efree(c_val_lens); efree(c_errs);
+}
+
 
 /* public function RocksDB::put(string $key, string $value): bool */
 PHP_METHOD(RocksDB, put)
@@ -676,6 +733,7 @@ PHP_METHOD(RocksDBIterator, destroy)
 static const zend_function_entry rocksdb_methods[] = {
   PHP_ME(RocksDB, __construct, arginfo_rocksdb___construct, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
   PHP_ME(RocksDB, get,         arginfo_rocksdb_get,         ZEND_ACC_PUBLIC)
+  PHP_ME(RocksDB, multiGet,    arginfo_rocksdb_multiGet,    ZEND_ACC_PUBLIC)
   PHP_ME(RocksDB, put,         arginfo_rocksdb_put,         ZEND_ACC_PUBLIC)
   PHP_ME(RocksDB, delete,      arginfo_rocksdb_delete,      ZEND_ACC_PUBLIC)
   PHP_ME(RocksDB, write,       arginfo_rocksdb_write,       ZEND_ACC_PUBLIC)
