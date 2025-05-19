@@ -8,7 +8,7 @@ Build instructions:
 git clone git@github.com:lirenz/php-rocksdb.git
 cd php-rocksdb
 phpize
-./configure --enable-rocksdb
+./configure --with-rocksdb=YOUR_ROCKSDB_SO_DIRECTORY
 make
 sudo make install
 ```
