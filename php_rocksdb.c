@@ -369,7 +369,7 @@ PHP_METHOD(RocksDB, get)
   ROCKSDB_CHECK_ERROR(err);
 
   if (!val) {
-    RETURN_FALSE;
+    RETURN_NULL();
   }
   RETVAL_STRINGL(val, val_len);
   rocksdb_free(val);
