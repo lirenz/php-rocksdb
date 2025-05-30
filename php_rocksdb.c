@@ -392,9 +392,10 @@ PHP_METHOD(RocksDB, multiGet)
 
   c_keys     = emalloc(sizeof(char*)  * n);
   c_key_lens = emalloc(sizeof(size_t) * n);
-  c_vals     = emalloc(sizeof(char*)  * n);
+  /* ---- modified: zero-filled for safety ---- */
+  c_vals     = ecalloc(n, sizeof(char*));   /* was emalloc */
   c_val_lens = emalloc(sizeof(size_t) * n);
-  c_errs     = emalloc(sizeof(char*)  * n);
+  c_errs     = ecalloc(n, sizeof(char*));   /* was emalloc */
 
   zval *zv;
   ZEND_HASH_FOREACH_VAL(ht, zv) {
