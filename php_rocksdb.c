@@ -148,12 +148,11 @@ static zend_object *php_rocksdb_iterator_object_new(zend_class_entry *ce) {
 
 /* ---------------------- Arginfo Declarations ---------------------- */
 
-/* comptact range */
+/* RocksDB::compactRange(?string $begin = null, ?string $end = null): bool */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_rocksdb_compactRange, 0, 0, 0)
-    ZEND_ARG_TYPE_INFO(0, begin, IS_STRING, 1)
-    ZEND_ARG_TYPE_INFO(0, end,   IS_STRING, 1)
-  ZEND_END_ARG_INFO()
-
+  ZEND_ARG_TYPE_INFO(0, begin, IS_STRING, 1)
+  ZEND_ARG_TYPE_INFO(0, end,   IS_STRING, 1)
+ZEND_END_ARG_INFO()
 
 /* RocksDB::__construct(string $path, array $options = null) */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_rocksdb___construct, 0, 0, 1)
@@ -341,35 +340,25 @@ PHP_METHOD(RocksDB, __construct)
       rocksdb_block_based_options_set_block_restart_interval(table_opts, (int)Z_LVAL_P(val));
     }
 
-    if ((val = zend_hash_str_find(ht, "disable_auto_compactions", sizeof("disable_auto_compactions")-1)) != NULL) {
-        rocksdb_options_set_disable_auto_compactions(obj->options, zend_is_true(val));
+    /* Additions: bulk/online control knobs */
+    if ((val = zend_hash_str_find(ht, "disable_auto_compactions", sizeof("disable_auto_compactions") - 1)) != NULL) {
+      rocksdb_options_set_disable_auto_compactions(obj->options, zend_is_true(val));
     }
-    if ((val = zend_hash_str_find(ht, "level_compaction_dynamic_level_bytes", sizeof("level_compaction_dynamic_level_bytes")-1)) != NULL) {
-        rocksdb_options_set_level_compaction_dynamic_level_bytes(obj->options, zend_is_true(val));
+    if ((val = zend_hash_str_find(ht, "level_compaction_dynamic_level_bytes", sizeof("level_compaction_dynamic_level_bytes") - 1)) != NULL) {
+      rocksdb_options_set_level_compaction_dynamic_level_bytes(obj->options, zend_is_true(val));
     }
-    if ((val = zend_hash_str_find(ht, "max_subcompactions", sizeof("max_subcompactions")-1)) != NULL) {
-        convert_to_long(val);
-          rocksdb_options_set_max_subcompactions(obj->options, (uint32_t)Z_LVAL_P(val));
+    if ((val = zend_hash_str_find(ht, "max_subcompactions", sizeof("max_subcompactions") - 1)) != NULL) {
+      convert_to_long(val);
+      rocksdb_options_set_max_subcompactions(obj->options, (uint32_t)Z_LVAL_P(val));
     }
-    if ((val = zend_hash_str_find(ht, "bytes_per_sync", sizeof("bytes_per_sync")-1)) != NULL) {
-        convert_to_long(val);
-          rocksdb_options_set_bytes_per_sync(obj->options, (uint64_t)Z_LVAL_P(val));
+    if ((val = zend_hash_str_find(ht, "bytes_per_sync", sizeof("bytes_per_sync") - 1)) != NULL) {
+      convert_to_long(val);
+      rocksdb_options_set_bytes_per_sync(obj->options, (uint64_t)Z_LVAL_P(val));
     }
-    if ((val = zend_hash_str_find(ht, "wal_bytes_per_sync", sizeof("wal_bytes_per_sync")-1)) != NULL) {
-        convert_to_long(val);
-          rocksdb_options_set_wal_bytes_per_sync(obj->options, (uint64_t)Z_LVAL_P(val));
+    if ((val = zend_hash_str_find(ht, "wal_bytes_per_sync", sizeof("wal_bytes_per_sync") - 1)) != NULL) {
+      convert_to_long(val);
+      rocksdb_options_set_wal_bytes_per_sync(obj->options, (uint64_t)Z_LVAL_P(val));
     }
-
-
-
-
-
-
-
-
-
-
-
   }
 
   rocksdb_options_set_block_based_table_factory(obj->options, table_opts);
@@ -387,16 +376,19 @@ PHP_METHOD(RocksDB, __construct)
   ROCKSDB_CHECK_ERROR(err);
 }
 
+/* public function RocksDB::compactRange(?string $begin = null, ?string $end = null): bool */
 PHP_METHOD(RocksDB, compactRange)
 {
-char *begin = NULL, *end = NULL; size_t blen = 0, elen = 0;
-      rocksdb_object *obj = php_rocksdb_object_from_zobj(Z_OBJ_P(getThis()));
-        if (zend_parse_parameters(ZEND_NUM_ARGS(), "|s!s!", &begin, &blen, &end, &elen) == FAILURE) return;
-          rocksdb_compact_range(obj->db, obj->read_options, begin, blen, end, elen);
-            RETURN_TRUE;
+  char *begin = NULL, *end = NULL;
+  size_t blen = 0, elen = 0;
+  if (zend_parse_parameters(ZEND_NUM_ARGS(), "|s!s!", &begin, &blen, &end, &elen) == FAILURE) {
+    return;
+  }
+  rocksdb_object *obj = php_rocksdb_object_from_zobj(Z_OBJ_P(getThis()));
+  /* Correct C API call (no read_options parameter) */
+  rocksdb_compact_range(obj->db, begin, blen, end, elen);
+  RETURN_TRUE;
 }
-
-
 
 /* public function RocksDB::get(string $key): string|false */
 PHP_METHOD(RocksDB, get)
@@ -440,10 +432,9 @@ PHP_METHOD(RocksDB, multiGet)
 
   c_keys     = emalloc(sizeof(char*)  * n);
   c_key_lens = emalloc(sizeof(size_t) * n);
-  /* ---- modified: zero-filled for safety ---- */
-  c_vals     = ecalloc(n, sizeof(char*));   /* was emalloc */
+  c_vals     = ecalloc(n, sizeof(char*));
   c_val_lens = emalloc(sizeof(size_t) * n);
-  c_errs     = ecalloc(n, sizeof(char*));   /* was emalloc */
+  c_errs     = ecalloc(n, sizeof(char*));
 
   zval *zv;
   ZEND_HASH_FOREACH_VAL(ht, zv) {
@@ -471,10 +462,12 @@ PHP_METHOD(RocksDB, multiGet)
     }
   }
 
-  efree(c_keys); efree(c_key_lens);
-  efree(c_vals); efree(c_val_lens); efree(c_errs);
+  efree(c_keys);
+  efree(c_key_lens);
+  efree(c_vals);
+  efree(c_val_lens);
+  efree(c_errs);
 }
-
 
 /* public function RocksDB::put(string $key, string $value): bool */
 PHP_METHOD(RocksDB, put)
@@ -583,8 +576,7 @@ PHP_METHOD(RocksDB, prefixSearch)
   char *prefix;
   size_t prefix_len;
 
-  if (zend_parse_parameters(ZEND_NUM_ARGS(), "s", &prefix, &prefix_len)
-      == FAILURE) {
+  if (zend_parse_parameters(ZEND_NUM_ARGS(), "s", &prefix, &prefix_len) == FAILURE) {
     return;
   }
 
@@ -677,8 +669,7 @@ PHP_METHOD(RocksDBIterator, __construct)
   rocksdb_iterator_object *it_obj;
   rocksdb_object *db_obj;
 
-  if (zend_parse_parameters(ZEND_NUM_ARGS(), "O|z", &db_zv, php_rocksdb_ce, &prefix_zv)
-      == FAILURE) {
+  if (zend_parse_parameters(ZEND_NUM_ARGS(), "O|z", &db_zv, php_rocksdb_ce, &prefix_zv) == FAILURE) {
     return;
   }
   it_obj = php_rocksdb_iterator_object_from_zobj(Z_OBJ_P(getThis()));
@@ -780,15 +771,15 @@ PHP_METHOD(RocksDBIterator, destroy)
 /* ------------------- Method Tables ------------------- */
 
 static const zend_function_entry rocksdb_methods[] = {
-  PHP_ME(RocksDB, __construct, arginfo_rocksdb___construct, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
-  PHP_ME(RocksDB, compactRange, arginfo_rocksdb_compactRange, ZEND_ACC_PUBLIC)
-  PHP_ME(RocksDB, get,         arginfo_rocksdb_get,         ZEND_ACC_PUBLIC)
-  PHP_ME(RocksDB, multiGet,    arginfo_rocksdb_multiGet,    ZEND_ACC_PUBLIC)
-  PHP_ME(RocksDB, put,         arginfo_rocksdb_put,         ZEND_ACC_PUBLIC)
-  PHP_ME(RocksDB, delete,      arginfo_rocksdb_delete,      ZEND_ACC_PUBLIC)
-  PHP_ME(RocksDB, write,       arginfo_rocksdb_write,       ZEND_ACC_PUBLIC)
-  PHP_ME(RocksDB, getIterator, arginfo_rocksdb_getIterator, ZEND_ACC_PUBLIC)
-  PHP_ME(RocksDB, prefixSearch,arginfo_rocksdb_prefixSearch,ZEND_ACC_PUBLIC)
+  PHP_ME(RocksDB, __construct,   arginfo_rocksdb___construct,   ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
+  PHP_ME(RocksDB, compactRange,  arginfo_rocksdb_compactRange,  ZEND_ACC_PUBLIC)
+  PHP_ME(RocksDB, get,           arginfo_rocksdb_get,           ZEND_ACC_PUBLIC)
+  PHP_ME(RocksDB, multiGet,      arginfo_rocksdb_multiGet,      ZEND_ACC_PUBLIC)
+  PHP_ME(RocksDB, put,           arginfo_rocksdb_put,           ZEND_ACC_PUBLIC)
+  PHP_ME(RocksDB, delete,        arginfo_rocksdb_delete,        ZEND_ACC_PUBLIC)
+  PHP_ME(RocksDB, write,         arginfo_rocksdb_write,         ZEND_ACC_PUBLIC)
+  PHP_ME(RocksDB, getIterator,   arginfo_rocksdb_getIterator,   ZEND_ACC_PUBLIC)
+  PHP_ME(RocksDB, prefixSearch,  arginfo_rocksdb_prefixSearch,  ZEND_ACC_PUBLIC)
   PHP_FE_END
 };
 
@@ -895,4 +886,3 @@ ZEND_TSRMLS_CACHE_DEFINE()
 # endif
 ZEND_GET_MODULE(rocksdb)
 #endif
-
