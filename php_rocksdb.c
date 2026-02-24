@@ -191,6 +191,11 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO_EX(arginfo_rocksdb_getIterator, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
+/* RocksDB::getProperty(string $name): string|null */
+ZEND_BEGIN_ARG_INFO_EX(arginfo_rocksdb_getProperty, 0, 0, 1)
+  ZEND_ARG_TYPE_INFO(0, name, IS_STRING, 0)
+ZEND_END_ARG_INFO()
+
 /* RocksDB::prefixSearch(string $prefix): RocksDBIterator */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_rocksdb_prefixSearch, 0, 0, 1)
   ZEND_ARG_TYPE_INFO(0, prefix, IS_STRING, 0)
@@ -600,6 +605,27 @@ PHP_METHOD(RocksDB, prefixSearch)
   }
 }
 
+/* public function RocksDB::getProperty(string $name): string|null */
+PHP_METHOD(RocksDB, getProperty)
+{
+  char *name;
+  size_t name_len;
+  rocksdb_object *obj;
+  char *val;
+
+  if (zend_parse_parameters(ZEND_NUM_ARGS(), "s", &name, &name_len) == FAILURE) {
+    return;
+  }
+  obj = php_rocksdb_object_from_zobj(Z_OBJ_P(getThis()));
+
+  val = rocksdb_property_value(obj->db, name);
+  if (!val) {
+    RETURN_NULL();
+  }
+  RETVAL_STRING(val);
+  rocksdb_free(val);
+}
+
 /* ------------------- RocksDBWriteBatch Methods ------------------- */
 
 /* public function __construct() */
@@ -780,6 +806,7 @@ static const zend_function_entry rocksdb_methods[] = {
   PHP_ME(RocksDB, write,         arginfo_rocksdb_write,         ZEND_ACC_PUBLIC)
   PHP_ME(RocksDB, getIterator,   arginfo_rocksdb_getIterator,   ZEND_ACC_PUBLIC)
   PHP_ME(RocksDB, prefixSearch,  arginfo_rocksdb_prefixSearch,  ZEND_ACC_PUBLIC)
+  PHP_ME(RocksDB, getProperty,   arginfo_rocksdb_getProperty,   ZEND_ACC_PUBLIC)
   PHP_FE_END
 };
 
